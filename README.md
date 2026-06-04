@@ -1,147 +1,97 @@
-# 🧾 Mid-Level Technical Test – Multi-Tenant SaaS-Based Expense Management API
+# Expense Management API
 
-Welcome! This is a technical test for laravel backend developers.
+Multi-Tenant SaaS Expense Management System — Laravel 11, Sanctum, RBAC, Queues, Audit Logging.
 
-Your task is to build a secure, high-performance API for a **Multi-Tenant SaaS-based Expense Management System**, where multiple companies can manage their expenses independently. Please follow the instructions below and submit your solution as described.
+## Tech Stack
 
----
-
-## 🚀 Project Requirements
-
-### ✅ Key Features to Implement
-
-- **Multi-Tenant Support** – Companies should have isolated data.
-- **Secure API Authentication** – Use Laravel Sanctum.
-- **Role-Based Access Control (RBAC)** – Admins, Managers, Employees.
-- **Advanced Query Optimization** – Indexing, Eager Loading.
-- **Background Job Processing** – Laravel Queues.
-- **Audit Logging** – Track changes to expenses.
-
----
-
-## 🗂️ Tasks Breakdown
-
-### 🏗️ Task 1: Multi-Tenant Database Structure (Migrations & Models)
-
-#### Companies Table
-- Fields: `id`, `name`, `email`, `created_at`, `updated_at`
-
-#### Users Table (Modified)
-- Add `company_id` (Foreign Key)
-- Add `role` (Enum: `["Admin", "Manager", "Employee"]`)
-
-#### Expenses Table
-- Fields: `id`, `company_id`, `user_id`, `title`, `amount`, `category`, `created_at`, `updated_at`
-- Add an index on `company_id` for performance
-
-#### Relationships
-- A **Company** has many **Users**
-- A **User** belongs to a **Company**
-- A **User** has many **Expenses**
-
----
-
-### 🔐 Task 2: API Authentication & RBAC
-
-- Use **Laravel Sanctum** for token-based authentication
-- Implement Role-Based Access Control:
-  - **Admin**: Manage users & expenses
-  - **Manager**: Manage expenses (cannot delete users)
-  - **Employee**: View and create expenses
-- Ensure users **cannot access data** from other companies
-
----
-
-### 🧾 Task 3: API Endpoints
-
-#### Authentication
-- `POST /api/register` → Admin only
-- `POST /api/login`
-
-#### Expense Management
-- `GET /api/expenses` → List (by company, paginated, searchable by title/category)
-- `POST /api/expenses` → Create (restricted to logged-in user’s company)
-- `PUT /api/expenses/{id}` → Update (Managers & Admins only)
-- `DELETE /api/expenses/{id}` → Delete (Admins only)
-
-#### User Management
-- `GET /api/users` → List users (Admins only)
-- `POST /api/users` → Add user (Admins only)
-- `PUT /api/users/{id}` → Update user role (Admins only)
-
----
-
-### ⚙️ Task 4: Optimization & Performance
-
-- Use **Eager Loading** (`with()`) to avoid N+1 queries
-- Add **indexes** on `company_id` and `user_id` in the expenses table
-- Implement **Redis caching** for frequently accessed queries
-
----
-
-### 🧵 Task 5: Background Job Processing
-
-- Use Laravel Queues (with `database` or `redis` driver)
-- Create a **weekly job** that sends an expense report to all Admins
-- Use Laravel’s **scheduler** (`schedule:run`) to run the job
-
----
-
-### 🕵️‍♀️ Task 6: Audit Logs
-
-#### Audit Logs Table
-- Fields: `id`, `user_id`, `company_id`, `action`, `changes`, `created_at`
-
-#### Requirements
-- Log every **update/delete** action on expenses
-- Store the **old and new values** of each expense before update
-
----
-
-## 🛠️ Tech Stack
-
-- Laravel 10+
-- MySQL or PostgreSQL
+- Laravel 11
+- MySQL / PostgreSQL
 - Laravel Sanctum
-- Redis (optional but recommended)
+- Redis (caching + queues)
 - Laravel Queues & Scheduler
 
----
+## Architecture
 
-## 📬 How to Submit
+```
+Controller → Service → Repository → Model
+```
 
-1. **Fork** this repository.
-2. **Clone** the forked repository to your local machine.
-3. Create a new **branch** using your full name (e.g., `john-doe`):
+- **Controllers** handle validation (via FormRequests) and responses (via `ApiResponse` trait)
+- **Services** contain business logic
+- **Repositories** abstract database queries; interfaces allow easy swapping/mocking
+- **Enums** for `Role` and `ApiStatus` — enforced via casts and middleware
 
-   ```bash
-   git checkout -b john-doe
-4. Complete the tasks outlined above.
-5. Push your branch to your forked repository:
+## Setup
 
-   git push origin your-branch-name
+```bash
+git clone <repo>
+cd expense-management-api
 
-6. Create a Pull Request (PR) to the original repository’s `main` branch.
+composer install
+cp .env.example .env
+php artisan key:generate
 
-7. In the PR description, please include:
-   - Your full name
-   - Any notes or assumptions made
-   - Features you implemented or skipped (with reasons)
-   - Any instructions for testing (if applicable)
+# Configure DB and Redis in .env
 
----
+php artisan migrate --seed
+php artisan serve --port=8006
+php artisan queue:work --queue=default
+```
 
-## ✅ Evaluation Criteria
+## .env (key settings)
 
-- Correctness & completeness of features  
-- Code structure and readability  
-- Proper use of Laravel best practices  
-- Security and role enforcement  
-- Performance optimizations  
-- Bonus: Tests, Redis integration, and proper API responses  
+```env
+DB_CONNECTION=mysql
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
+REDIS_HOST=127.0.0.1
+```
 
----
+## RBAC Summary
 
-Good luck! 🍀 Feel free to reach out if you need clarification on any part of the task.
+| Action                  | Employee | Manager | Admin |
+|-------------------------|----------|---------|-------|
+| View expenses           | ✅       | ✅      | ✅    |
+| Create expense          | ✅       | ✅      | ✅    |
+| Update expense          | ❌       | ✅      | ✅    |
+| Delete expense          | ❌       | ❌      | ✅    |
+| Manage users            | ❌       | ❌      | ✅    |
 
+## Multi-Tenancy
 
+All queries are scoped to `company_id` via:
+- `HasCompanyScope` trait → `scopeForCompany()`
+- Repository methods always receive and apply `company_id`
+- Cross-company access returns 404 (not leaking existence)
+
+## Audit Logging
+
+Every `update` and `delete` on expenses creates an `audit_logs` record with `before`/`after` values in the `changes` JSON column.
+
+## Weekly Report Job
+
+Runs every Monday at 08:00 via scheduler. Sends an expense summary email to all Admins per company.
+
+```bash
+# Run scheduler locally
+php artisan schedule:work
+```
+
+## Running Tests
+
+```bash
+php artisan test
+# or
+php artisan test --filter ExpenseTest
+```
+
+## Postman
+
+Import `expense-api.postman_collection.json` into Postman.  
+The Login/Register requests auto-save the token to `{{token}}` via test scripts.
+
+## Assumptions
+
+- Registration creates a new Company + Admin in one request (company onboarding flow)
+- `company_id` isolation is enforced at the repository layer, not via global scopes (intentional — avoids hidden magic in complex queries)
+- Redis is recommended but the app falls back to `database` driver for queues and `file` for cache if Redis is unavailable

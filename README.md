@@ -91,7 +91,7 @@ You can test and explore the API using Postman.
 
 ### Option 1: Import Collection File
 
-Import `expense-api.postman_collection.json` into Postman.  
+Import `expense-api.postman_collection.json` from the codebase into Postman.  
 
 ### Option 2: Online Documentation
 

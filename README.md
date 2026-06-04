@@ -34,7 +34,7 @@ php artisan key:generate
 # Configure DB and Redis in .env
 
 php artisan migrate --seed
-php artisan serve --port=8006
+php artisan serve
 php artisan queue:work --queue=default
 ```
 
@@ -85,9 +85,20 @@ php artisan test
 php artisan test --filter ExpenseTest
 ```
 
-## Postman
+## API Documentation
+
+You can test and explore the API using Postman.
+
+### Option 1: Import Collection File
 
 Import `expense-api.postman_collection.json` into Postman.  
+
+### Option 2: Online Documentation
+
+You can also access the full API documentation here:
+
+[https://documenter.getpostman.com/view/40009217/2sBXwpNXGc](https://documenter.getpostman.com/view/40009217/2sBXwpNXGc)
+
 The Login/Register requests auto-save the token to `{{token}}` via test scripts.
 
 ## Assumptions
